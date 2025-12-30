@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockVibe - Compare Companies</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: #0a1a2f;
+            color: #ffffff;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+        }
+        .btn {
+            transition: all 0.3s;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            background: #FFD700;
+            color: #0a1a2f;
+        }
+        .card {
+            transition: transform 0.3s, box-shadow 0.3s;
+            background: linear-gradient(145deg, #1e2a44, #141e30);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        .card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+        }
+        h1, h2, h3 {
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .mobile-menu {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        .mobile-menu.open { transform: translateX(0); }
+        main {
+            position: relative;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50"><path d="M0 0h50v50H0z" fill="none"/><path d="M0 50V0h50" fill="none" stroke="rgba(255,215,0,0.1)" stroke-width="1"/></svg>') repeat;
+        }
+        select, input[type="date"] {
+            background: #141e30;
+            color: #ffffff;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            padding: 8px;
+            border-radius: 4px;
+        }
+        select:focus, input[type="date"]:focus {
+            outline: none;
+            border-color: #FFD700;
+        }
+        .error-message { color: #ef4444; font-weight: 600; }
+        .loading-spinner { 
+            border: 4px solid rgba(255, 215, 0, 0.3); 
+            border-top: 4px solid #FFD700; 
+            border-radius: 50%; 
+            width: 40px; 
+            height: 40px; 
+            animation: spin 1s linear infinite; 
+            margin: 20px auto; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full bg-[#0a1a2f] shadow-lg z-20">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="index.html" class="text-2xl font-bold text-[#FFD700]">StockVibe</a>
+            <div class="hidden md:flex space-x-6">
+                <a href="index.html#home" class="hover:text-[#FFD700]">Home</a>
+                <a href="dashboard.html" class="hover:text-[#FFD700]">Sentiment Insights</a>
+                <a href="compare.html" class="hover:text-[#FFD700]">Compare Companies</a>
+                <a href="index.html#features" class="hover:text-[#FFD700]">Features</a>
+                
+                <a href="index.html#contact" class="hover:text-[#FFD700]">Contact</a>
+            </div>
+            <button id="mobileMenuBtn" class="md:hidden text-[#FFD700] focus:outline-none">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </div>
+    </nav>
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="mobile-menu fixed top-0 right-0 h-full w-3/4 bg-[#141e30] z-30 md:hidden">
+        <div class="flex justify-end p-4">
+            <button id="closeMenuBtn" class="text-[#FFD700] focus:outline-none">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="flex flex-col items-center space-y-6 mt-10">
+            <a href="index.html#home" class="text-lg hover:text-[#FFD700]">Home</a>
+            <a href="dashboard.html" class="text-lg hover:text-[#FFD700]">Sentiment Insights</a>
+            <a href="compare.html" class="text-lg hover:text-[#FFD700]">Compare Companies</a>
+            <a href="index.html#features" class="text-lg hover:text-[#FFD700]">Features</a>
+            
+            <a href="index.html#contact" class="text-lg hover:text-[#FFD700]">Contact</a>
+        </div>
+    </div>
+
+    <main class="container mx-auto px-4 pt-24 pb-12">
+        <header class="mb-12 text-center">
+            <h1 class="text-4xl sm:text-5xl font-bold text-[#ffffff] mb-4">Compare Companies</h1>
+            <p class="text-lg text-[#E5E7EB]">Compare sentiment, price, and price change percentage between two companies.</p>
+        </header>
+
+        <!-- Company Comparison -->
+        <section class="mb-12">
+            <h2 class="text-3xl font-semibold mb-6 text-[#ffffff]">Company Comparison</h2>
+            <div class="card p-6 rounded-lg">
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <select id="company1Select">
+                        <option value="hdfc">HDFC Bank</option>
+                        <option value="reliance">Reliance</option>
+                        <option value="tcs">TCS</option>
+                        <option value="infosys">Infosys</option>
+                        <option value="icici">ICICI Bank</option>
+                        <option value="Adani_Enterprises">Adani Enterprises</option>
+                        <option value="Larsen_Toubro">Larsen Toubro</option>
+                        <option value="kotak_mahi">Kotak Mahindra</option>
+                        <option value="Hindustan_Unilever">Hindustan Unilever</option>
+                        <option value="itc">ITC</option>
+                    </select>
+                    <select id="company2Select">
+                        <option value="reliance">Reliance</option>
+                        <option value="hdfc">HDFC Bank</option>
+                        <option value="tcs">TCS</option>
+                        <option value="infosys">Infosys</option>
+                        <option value="icici">ICICI Bank</option>
+                        <option value="Adani_Enterprises">Adani Enterprises</option>
+                        <option value="Larsen_Toubro">Larsen Toubro</option>
+                        <option value="kotak_mahi">Kotak Mahindra</option>
+                        <option value="Hindustan_Unilever">Hindustan Unilever</option>
+                        <option value="itc">ITC</option>
+                    </select>
+                    <select id="comparisonPeriod" onchange="updateComparisonCharts()">
+                        <option value="all">All Time</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="90d">Last 90 Days</option>
+                        <option value="1y">Last 1 Year</option>
+                    </select>
+                    <select id="comparisonYear" onchange="updateComparisonCharts()">
+                        <option value="all">All Years</option>
+                    </select>
+                    <select id="comparisonMonth" onchange="updateComparisonCharts()" disabled>
+                        <option value="all">All Months</option>
+                    </select>
+                    <input type="date" id="comparisonStartDate" onchange="updateComparisonCharts()" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                    <input type="date" id="comparisonEndDate" onchange="updateComparisonCharts()" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                    <button onclick="updateComparisonCharts()" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-2 px-4 rounded-lg">Compare</button>
+                </div>
+                <div id="comparisonError" class="error-message hidden mb-4"></div>
+                <div id="comparisonLoading" class="loading-spinner hidden"></div>
+                <h3 class="text-xl font-semibold text-[#FFD700] mb-3">Sentiment Comparison</h3>
+                <canvas id="sentimentComparisonChart" height="100"></canvas>
+                <h3 class="text-xl font-semibold text-[#FFD700] mt-6 mb-3">Price Comparison</h3>
+                <canvas id="priceComparisonChart" height="100"></canvas>
+                <h3 class="text-xl font-semibold text-[#FFD700] mt-6 mb-3">Price Change Percentage Comparison</h3>
+                <canvas id="priceChangeComparisonChart" height="100"></canvas>
+            </div>
+        </section>
+
+        <section class="text-center">
+            <a href="dashboard.html" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-3 px-6 rounded-lg">Back to Dashboard</a>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-[#0a1a2f] text-white py-8 text-center">
+        <p>© 2025 StockVibe. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:8000';
+        const companyNames = {
+            hdfc: "HDFC Bank",
+            reliance: "Reliance",
+            tcs: "TCS",
+            infosys: "Infosys",
+            icici: "ICICI Bank",
+            Adani_Enterprises: "Adani Enterprises",
+            Larsen_Toubro: "Larsen Toubro",
+            kotak_mahi: "Kotak Mahindra",
+            Hindustan_Unilever: "Hindustan Unilever",
+            itc: "ITC"
+        };
+
+        // Initialize charts
+        let sentimentComparisonChart, priceComparisonChart, priceChangeComparisonChart;
+
+        // Utility Functions
+        async function fetchWithErrorHandling(url, errorElementId, loadingElementId, errorMessage) {
+            const errorDiv = document.getElementById(errorElementId);
+            const loadingDiv = document.getElementById(loadingElementId);
+            try {
+                loadingDiv.classList.remove('hidden');
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                return await response.json();
+            } catch (error) {
+                errorDiv.textContent = `${errorMessage}: ${error.message}`;
+                errorDiv.classList.remove('hidden');
+                throw error;
+            } finally {
+                loadingDiv.classList.add('hidden');
+            }
+        }
+
+        function populateYearMonthFilters(trendData1, trendData2) {
+            const dates = [...new Set([...trendData1.map(d => d.date), ...trendData2.map(d => d.date)])];
+            const years = [...new Set(dates.map(d => new Date(d).getFullYear()))].sort();
+            const months = [...new Set(dates.map(d => new Date(d).getMonth() + 1))].sort((a, b) => a - b);
+
+            const yearSelect = document.getElementById('comparisonYear');
+            yearSelect.innerHTML = '<option value="all">All Years</option>' + 
+                years.map(y => `<option value="${y}">${y}</option>`).join('');
+
+            const monthSelect = document.getElementById('comparisonMonth');
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            monthSelect.innerHTML = '<option value="all">All Months</option>' + 
+                months.map(m => `<option value="${m}">${monthNames[m - 1]}</option>`).join('');
+
+            yearSelect.addEventListener('change', () => {
+                monthSelect.disabled = yearSelect.value === 'all';
+                updateComparisonCharts();
+            });
+            monthSelect.addEventListener('change', updateComparisonCharts);
+        }
+
+        async function updateComparisonCharts() {
+            const company1 = document.getElementById('company1Select').value;
+            const company2 = document.getElementById('company2Select').value;
+            const period = document.getElementById('comparisonPeriod').value;
+            const year = document.getElementById('comparisonYear').value;
+            const month = document.getElementById('comparisonMonth').value;
+            const startDate = document.getElementById('comparisonStartDate').value;
+            const endDate = document.getElementById('comparisonEndDate').value;
+
+            // Validate inputs
+            if (!company1 || !company2 || company1 === company2) {
+                document.getElementById('comparisonError').textContent = 'Please select two different valid companies.';
+                document.getElementById('comparisonError').classList.remove('hidden');
+                return;
+            }
+
+            try {
+                // Build URL with filters
+                let url1 = `${API_BASE_URL}/price-vs-sentiment/${company1}`;
+                let url2 = `${API_BASE_URL}/price-vs-sentiment/${company2}`;
+                let queryParams = [];
+
+                // Apply period filter
+                if (period !== 'all' && !startDate && !endDate) {
+                    const today = new Date();
+                    let start;
+                    if (period === '30d') start = new Date(today.setDate(today.getDate() - 30));
+                    else if (period === '90d') start = new Date(today.setDate(today.getDate() - 90));
+                    else if (period === '1y') start = new Date(today.setFullYear(today.getFullYear() - 1));
+                    queryParams.push(`start_date=${start.toISOString().split('T')[0]}`, `end_date=${new Date().toISOString().split('T')[0]}`);
+                } else if (startDate && endDate) {
+                    queryParams.push(`start_date=${startDate}`, `end_date=${endDate}`);
+                }
+
+                // Apply year and month filters
+                if (year !== 'all') {
+                    queryParams.push(`year=${year}`);
+                    if (month !== 'all') {
+                        queryParams.push(`month=${month}`);
+                    }
+                }
+
+                // Construct final URLs
+                if (queryParams.length > 0) {
+                    url1 += `?${queryParams.join('&')}`;
+                    url2 += `?${queryParams.join('&')}`;
+                }
+
+                const [trend1, trend2] = await Promise.all([
+                    fetchWithErrorHandling(
+                        url1,
+                        'comparisonError',
+                        'comparisonLoading',
+                        `Failed to load data for ${companyNames[company1]}`
+                    ).catch(() => []),
+                    fetchWithErrorHandling(
+                        url2,
+                        'comparisonError',
+                        'comparisonLoading',
+                        `Failed to load data for ${companyNames[company2]}`
+                    ).catch(() => [])
+                ]);
+
+                if (trend1.length === 0 && trend2.length === 0) {
+                    document.getElementById('comparisonError').textContent = 'No data available for the selected period.';
+                    document.getElementById('comparisonError').classList.remove('hidden');
+                    return;
+                }
+
+                // Populate year and month filters
+                populateYearMonthFilters(trend1, trend2);
+
+                const allDates = [...new Set([...trend1.map(d => d.date), ...trend2.map(d => d.date)])].sort();
+                
+                // Sentiment data
+                const scores1 = allDates.map(date => {
+                    const dayData = trend1.find(d => d.date === date);
+                    return dayData ? dayData.avg_net_sentiment * 100 : null;
+                });
+                const scores2 = allDates.map(date => {
+                    const dayData = trend2.find(d => d.date === date);
+                    return dayData ? dayData.avg_net_sentiment * 100 : null;
+                });
+
+                // Price data
+                const price1 = allDates.map(date => {
+                    const dayData = trend1.find(d => d.date === date);
+                    return dayData ? dayData.avg_current_price : null;
+                });
+                const price2 = allDates.map(date => {
+                    const dayData = trend2.find(d => d.date === date);
+                    return dayData ? dayData.avg_current_price : null;
+                });
+
+                // Price change percentage data
+                const firstValidPrice1 = price1.find(p => p !== null);
+                const firstValidPrice2 = price2.find(p => p !== null);
+                
+                const priceChange1 = price1.map(price => {
+                    if (price === null || !firstValidPrice1) return null;
+                    return ((price - firstValidPrice1) / firstValidPrice1 * 100);
+                });
+                const priceChange2 = price2.map(price => {
+                    if (price === null || !firstValidPrice2) return null;
+                    return ((price - firstValidPrice2) / firstValidPrice2 * 100);
+                });
+
+                document.getElementById('comparisonError').classList.add('hidden');
+
+                // Sentiment Comparison Chart
+                if (sentimentComparisonChart) sentimentComparisonChart.destroy();
+                sentimentComparisonChart = new Chart(document.getElementById('sentimentComparisonChart'), {
+                    type: 'line',
+                    data: {
+                        labels: allDates,
+                        datasets: [
+                            {
+                                label: `${companyNames[company1]} Sentiment`,
+                                data: scores1,
+                                borderColor: '#FFD700',
+                                backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                                fill: false,
+                                tension: 0.4,
+                                spanGaps: true
+                            },
+                            {
+                                label: `${companyNames[company2]} Sentiment`,
+                                data: scores2,
+                                borderColor: '#22c55e',
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                fill: false,
+                                tension: 0.4,
+                                spanGaps: true
+                            }
+                        ]
+                    },
+                    options: {
+                        scales: {
+                            y: { 
+                                beginAtZero: false, 
+                                grid: { borderColor: 'rgba(255, 215, 0, 0.2)' },
+                                title: { display: true, text: 'Sentiment (%)', color: '#E5E7EB' }
+                            },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#E5E7EB' } },
+                            tooltip: { enabled: true },
+                            zoom: {
+                                zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' },
+                                pan: { enabled: true, mode: 'xy' }
+                            }
+                        }
+                    }
+                });
+
+                // Price Comparison Chart
+                if (priceComparisonChart) priceComparisonChart.destroy();
+                priceComparisonChart = new Chart(document.getElementById('priceComparisonChart'), {
+                    type: 'line',
+                    data: {
+                        labels: allDates,
+                        datasets: [
+                            {
+                                label: `${companyNames[company1]} Price (₹)`,
+                                data: price1,
+                                borderColor: '#FFD700',
+                                backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                                fill: false,
+                                yAxisID: 'y-price',
+                                tension: 0.4,
+                                spanGaps: true
+                            },
+                            {
+                                label: `${companyNames[company2]} Price (₹)`,
+                                data: price2,
+                                borderColor: '#22c55e',
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                fill: false,
+                                yAxisID: 'y-price',
+                                tension: 0.4,
+                                spanGaps: true
+                            }
+                        ]
+                    },
+                    options: {
+                        scales: {
+                            'y-price': {
+                                type: 'linear',
+                                position: 'left',
+                                grid: { borderColor: 'rgba(255, 215, 0, 0.2)' },
+                                title: { display: true, text: 'Price (₹)', color: '#E5E7EB' }
+                            },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#E5E7EB' } },
+                            tooltip: { enabled: true },
+                            zoom: {
+                                zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' },
+                                pan: { enabled: true, mode: 'xy' }
+                            }
+                        }
+                    }
+                });
+
+                // Price Change Percentage Comparison Chart
+                if (priceChangeComparisonChart) priceChangeComparisonChart.destroy();
+                priceChangeComparisonChart = new Chart(document.getElementById('priceChangeComparisonChart'), {
+                    type: 'line',
+                    data: {
+                        labels: allDates,
+                        datasets: [
+                            {
+                                label: `${companyNames[company1]} Price Change (%)`,
+                                data: priceChange1,
+                                borderColor: '#FFD700',
+                                backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                                fill: false,
+                                yAxisID: 'y-price-change',
+                                tension: 0.4,
+                                spanGaps: true
+                            },
+                            {
+                                label: `${companyNames[company2]} Price Change (%)`,
+                                data: priceChange2,
+                                borderColor: '#22c55e',
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                fill: false,
+                                yAxisID: 'y-price-change',
+                                tension: 0.4,
+                                spanGaps: true
+                            }
+                        ]
+                    },
+                    options: {
+                        scales: {
+                            'y-price-change': {
+                                type: 'linear',
+                                position: 'left',
+                                grid: { borderColor: 'rgba(255, 215, 0, 0.2)' },
+                                title: { display: true, text: 'Price Change (%)', color: '#E5E7EB' }
+                            },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#E5E7EB' } },
+                            tooltip: { enabled: true },
+                            zoom: {
+                                zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' },
+                                pan: { enabled: true, mode: 'xy' }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error updating comparison charts:', error);
+            }
+        }
+
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const closeMenuBtn = document.getElementById('closeMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.add('open');
+        });
+        closeMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.remove('open');
+        });
+
+        // Initialize page
+        async function initialize() {
+            try {
+                const company1 = document.getElementById('company1Select').value;
+                const company2 = document.getElementById('company2Select').value;
+                const [trend1, trend2] = await Promise.all([
+                    fetchWithErrorHandling(
+                        `${API_BASE_URL}/price-vs-sentiment/${company1}`,
+                        'comparisonError',
+                        'comparisonLoading',
+                        `Failed to load initial data for ${companyNames[company1]}`
+                    ).catch(() => []),
+                    fetchWithErrorHandling(
+                        `${API_BASE_URL}/price-vs-sentiment/${company2}`,
+                        'comparisonError',
+                        'comparisonLoading',
+                        `Failed to load initial data for ${companyNames[company2]}`
+                    ).catch(() => [])
+                ]);
+
+                if (trend1.length > 0 || trend2.length > 0) {
+                    populateYearMonthFilters(trend1, trend2);
+                }
+                await updateComparisonCharts();
+            } catch (error) {
+                console.error('Initialization failed:', error);
+            }
+        }
+
+        // Start initialization
+        initialize();
+    </script>
+</body>
+</html>

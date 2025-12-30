@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockVibe - Indian Stock Forum Sentiment Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+    <!-- WordCloud2.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
+    <style>
+        body {
+            background: #0a1a2f;
+            color: #ffffff;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+        }
+        .btn {
+            transition: all 0.3s;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            background: #FFD700;
+            color: #0a1a2f;
+        }
+        .card {
+            transition: transform 0.3s, box-shadow 0.3s;
+            background: linear-gradient(145deg, #1e2a44, #141e30);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        .card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+        }
+        h1, h2, h3 {
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .mobile-menu {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        .mobile-menu.open { transform: translateX(0); }
+        main {
+            position: relative;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50"><path d="M0 0h50v50H0z" fill="none"/><path d="M0 50V0h50" fill="none" stroke="rgba(255,215,0,0.1)" stroke-width="1"/></svg>') repeat;
+        }
+        #hero {
+            background: linear-gradient(rgba(10, 26, 47, 0.8), rgba(10, 26, 47, 0.8)), url('https://images.unsplash.com/photo-1611974789855-9c2a0a723724');
+            background-size: cover;
+            background-position: center;
+        }
+        .visualization-preview canvas, .visualization-preview div {
+            max-width: 100%;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        .company-logo {
+            width: 100%;
+            height: 60px;
+            object-fit: contain;
+            margin: 0 auto;
+            transition: transform 0.3s;
+        }
+        .company-logo:hover {
+            transform: scale(1.1);
+        }
+        .error-message {
+            color: #FF6B6B;
+            text-align: center;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        canvas {
+            width: 100% !important;
+            height: 300px !important;
+        }
+        #wordCloud {
+            width: 100% !important;
+            height: 300px !important;
+        }
+        .sentiment-message {
+            background: #141e30;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+        .sentiment-message.positive { border-color: #FFD700; }
+        .sentiment-message.neutral { border-color: #E5E7EB; }
+        .sentiment-message.negative { border-color: #FF6B6B; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full bg-[#0a1a2f] shadow-lg z-20">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="index.html" class="text-2xl font-bold text-[#FFD700]">StockVibe</a>
+            <div class="hidden md:flex space-x-6">
+                <a href="#home" class="hover:text-[#FFD700]">Home</a>
+                <a href="dashboard.html" class="hover:text-[#FFD700]">Sentiment Insights</a>
+                <a href="#features" class="hover:text-[#FFD700]">Features</a>
+                <a href="#visualizations" class="hover:text-[#FFD700]">Visualizations</a>
+                <a href="#contact" class="hover:text-[#FFD700]">Contact</a>
+            </div>
+            <button id="mobileMenuBtn" class="md:hidden text-[#FFD700] focus:outline-none">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </div>
+    </nav>
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="mobile-menu fixed top-0 right-0 h-full w-3/4 bg-[#141e30] z-30 md:hidden">
+        <div class="flex justify-end p-4">
+            <button id="closeMenuBtn" class="text-[#FFD700] focus:outline-none">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="flex flex-col items-center space-y-6 mt-10">
+            <a href="#home" class="text-lg hover:text-[#FFD700]">Home</a>
+            <a href="dashboard.html" class="text-lg hover:text-[#FFD700]">Sentiment Insights</a>
+            <a href="#features" class="text-lg hover:text-[#FFD700]">Features</a>
+            <a href="#visualizations" class="text-lg hover:text-[#FFD700]">Visualizations</a>
+            <a href="#contact" class="text-lg hover:text-[#FFD700]">Contact</a>
+        </div>
+    </div>
+
+    <main>
+        <!-- Hero Section -->
+        <section id="home" class="py-32 sm:py-48 mt-16 sm:mt-24 flex flex-col justify-center items-center min-h-screen text-center my-12">
+            <div class="container mx-auto px-4 flex flex-col justify-center items-center">
+                <h1 class="text-4xl sm:text-6xl font-bold mb-6">Uncover Insights from Indian Stock Forums</h1>
+                <p class="text-lg sm:text-xl mb-8 max-w-2xl mx-auto">Dive into the pulse of India's top stock companies with StockVibe's FinBERT-powered sentiment analysis of forum discussions.</p>
+                <a href="dashboard.html" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-3 px-6 rounded-lg">Explore Insights Now</a>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section id="features" class="py-24 my-12 mb-8">
+            <div class="container mx-auto px-4">
+                <h2 class="text-3xl sm:text-4xl font-bold text-center mb-12">Why StockVibe?</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
+                    <div class="card p-6 rounded-lg text-center">
+                        <h3 class="text-xl font-semibold mb-4">Forum Sentiment Analysis</h3>
+                        <p class="text-[#E5E7EB]">Analyze discussions from Indian stock forums for companies like Reliance, TCS, and HDFC Bank using advanced FinBERT AI.</p>
+                    </div>
+                    <div class="card p-6 rounded-lg text-center">
+                        <h3 class="text-xl font-semibold mb-4">Actionable Insights</h3>
+                        <p class="text-[#E5E7EB]">Discover what investors are saying to spot trends and sentiment shifts in India's stock market.</p>
+                    </div>
+                    <div class="card p-6 rounded-lg text-center">
+                        <h3 class="text-xl font-semibold mb-4">Interactive Visualizations</h3>
+                        <p class="text-[#E5E7EB]">Explore sentiment through dynamic charts, word clouds, and company comparisons tailored to Indian stocks.</p>
+                    </div>
+                    <div class="card p-6 rounded-lg text-center">
+                        <h3 class="text-xl font-semibold mb-4">AI-Powered Graph Insights</h3>
+                        <p class="text-[#E5E7EB]">Leverage AI to uncover patterns and predict trends from sentiment graphs for Indian companies.</p>
+                    </div>
+                    <div class="card p-6 rounded-lg text-center">
+                        <h3 class="text-xl font-semibold mb-4">Trending News Analysis</h3>
+                        <p class="text-[#E5E7EB]">Get trending news for specific companies on dates with high forum activity to understand sentiment spikes.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Top Companies Section -->
+        <section id="top-companies" class="py-24 bg-[#141e30] my-12">
+            <div class="container mx-auto px-4">
+                <h2 class="text-3xl sm:text-4xl font-bold text-center mb-12">Top Indian Companies We Analyze</h2>
+                <p class="text-lg text-[#E5E7EB] text-center mb-8 max-w-3xl mx-auto">Get sentiment insights for India's leading companies driving the stock market.</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-12">
+                    <div class="card p-4 rounded-lg text-center">
+                        <img src="Logo/reliancenew1.png" alt="Reliance Industries Logo" class="company-logo mb-4" />
+                        <h3 class="text-lg font-semibold">Reliance Industries</h3>
+                    </div>
+                    <div class="card p-4 rounded-lg text-center">
+                        <img src="Logo/Tata_Consultancy_Services_old_logo.svg.png" alt="TCS Logo" class="company-logo mb-4" />
+                        <h3 class="text-lg font-semibold">TCS</h3>
+                    </div>
+                    <div class="card p-4 rounded-lg text-center">
+                        <img src="Logo/HDFC_Bank_Logo.svg.png" alt="HDFC Bank Logo" class="company-logo mb-4" />
+                        <h3 class="text-lg font-semibold">HDFC Bank</h3>
+                    </div>
+                    <div class="card p-4 rounded-lg text-center">
+                        <img src="Logo/infosys-nyn-tagline-reverse-png.png" alt="Infosys Logo" class="company-logo mb-4" />
+                        <h3 class="text-lg font-semibold">Infosys</h3>
+                    </div>
+                    <div class="card p-4 rounded-lg text-center">
+                        <img src="Logo/logo_itc.png" alt="ITC Logo" class="company-logo mb-4" />
+                        <h3 class="text-lg font-semibold">ITC</h3>
+                    </div>
+                    <div class="card p-4 rounded-lg text-center">
+                        <img src="Logo/logo-static-hul-dark.svg" alt="Hindustan Unilever Logo" class="company-logo mb-4" />
+                        <h3 class="text-lg font-semibold">Hindustan Unilever</h3>
+                    </div>
+                    <div class="card p-4 rounded-lg text-center">
+                        <img src="Logo/kotak-logo.webp" alt="Kotak Mahindra Logo" class="company-logo mb-4" />
+                        <h3 class="text-lg font-semibold">Kotak Mahindra</h3>
+                    </div>
+                    <div class="card p-4 rounded-lg text-center">
+                        <img src="Logo/logo L and T.webp" alt="Larsen Toubro Logo" class="company-logo mb-4" />
+                        <h3 class="text-lg font-semibold">Larsen Toubro</h3>
+                    </div>
+                    <div class="card p-4 rounded-lg text-center">
+                        <img src="Logo/ent-footer.png" alt="Adani Enterprises Logo" class="company-logo mb-4" />
+                        <h3 class="text-lg font-semibold">Adani Enterprises</h3>
+                    </div>
+                    <div class="card p-4 rounded-lg text-center">
+                        <img src="Logo/idpyGoeREm_1746558385118.svg" alt="ICICI Bank Logo" class="company-logo mb-4" />
+                        <h3 class="text-lg font-semibold">ICICI Bank</h3>
+                    </div>
+                </div>
+                <div class="text-center mt-12">
+                    <a href="dashboard.html" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-3 px-6 rounded-lg">Explore Company Insights</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visualizations Preview Section -->
+        <section id="visualizations" class="py-24 bg-[#141e30] my-12">
+            <div class="container mx-auto px-4">
+                <h2 class="text-3xl sm:text-4xl font-bold text-center mb-12">See the Market Through Data</h2>
+                <p class="text-lg text-[#E5E7EB] text-center mb-8 max-w-3xl mx-auto">StockVibe transforms forum discussions into stunning visualizations to help you understand investor sentiment for India's top stocks.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="card p-6 rounded-lg visualization-preview">
+                        <h3 class="text-xl font-semibold mb-4">Sentiment Overview</h3>
+                        <p class="text-[#E5E7EB] mb-4">Visualize the balance of positive, negative, and neutral sentiments for Reliance Industries with a dynamic pie chart.</p>
+                        <canvas id="pieChart" width="400" height="400"></canvas>
+                        <div id="pieChartError" class="error-message"></div>
+                    </div>
+                    <div class="card p-6 rounded-lg visualization-preview">
+                        <h3 class="text-xl font-semibold mb-4">Sentiment Trends</h3>
+                        <p class="text-[#E5E7EB] mb-4">Track how sentiment for Reliance Industries evolves over time with an interactive line graph.</p>
+                        <canvas id="lineChart" width="800" height="400"></canvas>
+                        <div id="trendChartError" class="error-message"></div>
+                    </div>
+                    <div class="card p-6 rounded-lg visualization-preview">
+                        <h3 class="text-xl font-semibold mb-4">Key Discussion Topics</h3>
+                        <p class="text-[#E5E7EB] mb-4">Discover hot topics in Reliance Industries forums with a vibrant word cloud.</p>
+                        <div id="wordCloud" style="width: 100%; height: 300px;"></div>
+                        <div id="wordCloudError" class="error-message"></div>
+                    </div>
+                </div>
+                <div class="text-center mt-12">
+                    <a href="dashboard.html" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-3 px-6 rounded-lg">View All Visualizations</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sentiment Snapshot Section -->
+        <section id="sentiment-snapshot" class="py-24 my-12">
+            <div class="container mx-auto px-4">
+                <h2 class="text-3xl sm:text-4xl font-bold text-center mb-12">Sentiment Snapshot</h2>
+                <p class="text-lg text-[#E5E7EB] text-center mb-8 max-w-3xl mx-auto">A glimpse into what investors are saying about Reliance Industries, showcasing positive, neutral, and negative sentiments.</p>
+                <div id="snapshotContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Messages will be dynamically inserted here -->
+                </div>
+                <div id="snapshotError" class="error-message text-center mt-4"></div>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="contact" class="py-24 my-12 bg-gradient-to-b from-[#0a1a2f] to-[#141e30]">
+            <div class="container mx-auto px-4">
+                <h2 class="text-3xl sm:text-4xl font-bold text-center mb-12">Get in Touch</h2>
+                <p class="text-lg text-[#E5E7EB] text-center mb-12 max-w-3xl mx-auto">We're here to answer your questions and provide insights into India's stock market. Reach out today!</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                    <!-- Contact Form -->
+                    <div class="card p-8 rounded-lg bg-[#1e2a44] border border-[#FFD700]/20">
+                        <h3 class="text-2xl font-semibold mb-6 text-center">Send Us a Message</h3>
+                        <form>
+                            <div class="mb-4">
+                                <label for="name" class="block text-[#E5E7EB] mb-2">Name</label>
+                                <input type="text" id="name" name="name" placeholder="Your Name" class="w-full p-3 rounded-lg bg-[#141e30] text-[#E5E7EB] border border-[#FFD700]/20 focus:outline-none focus:ring-2 focus:ring-[#FFD700]" required />
+                            </div>
+                            <div class="mb-4">
+                                <label for="email" class="block text-[#E5E7EB] mb-2">Email</label>
+                                <input type="email" id="email" name="email" placeholder="Your Email" class="w-full p-3 rounded-lg bg-[#141e30] text-[#E5E7EB] border border-[#FFD700]/20 focus:outline-none focus:ring-2 focus:ring-[#FFD700]" required />
+                            </div>
+                            <div class="mb-4">
+                                <label for="message" class="block text-[#E5E7EB] mb-2">Message</label>
+                                <textarea id="message" name="message" placeholder="Your Message" rows="4" class="w-full p-3 rounded-lg bg-[#141e30] text-[#E5E7EB] border border-[#FFD700]/20 focus:outline-none focus:ring-2 focus:ring-[#FFD700]" required></textarea>
+                            </div>
+                            <div class="text-center">
+                                <button type="submit" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-3 px-6 rounded-lg">Send Message</button>
+                            </div>
+                        </form>
+                    </div>
+                    <!-- Contact Details -->
+                    <div class="card p-8 rounded-lg bg-[#1e2a44] border border-[#FFD700]/20">
+                        <h3 class="text-2xl font-semibold mb-6 text-center">Contact Information</h3>
+                        <div class="space-y-6">
+                            <div class="flex items-center space-x-4">
+                                <svg class="h-6 w-6 text-[#FFD700]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                <div>
+                                    <p class="text-[#E5E7EB] font-semibold">Email</p>
+                                    <a href="mailto:support@stockvibe.com" class="text-[#FFD700] hover:underline">support@stockvibe.com</a>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <svg class="h-6 w-6 text-[#FFD700]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                                <div>
+                                    <p class="text-[#E5E7EB] font-semibold">Phone</p>
+                                    <p class="text-[#FFD700]">+91 (555) 123-4567</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <svg class="h-6 w-6 text-[#FFD700]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                <div>
+                                    <p class="text-[#E5E7EB] font-semibold">Address</p>
+                                    <p class="text-[#FFD700]">123 Market St, Mumbai, India</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-[#0a1a2f] text-white py-8 text-center">
+        <p>© 2025 StockVibe. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const closeMenuBtn = document.getElementById('closeMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.add('open');
+        });
+        closeMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.remove('open');
+        });
+
+        // Chart.js and WordCloud2.js Visualization Scripts
+        const backendUrl = 'http://localhost:8000'; // Update to your backend URL
+        const company = 'reliance'; // Hardcoded for Reliance Industries
+        
+        // Fallback Data
+        const fallbackPieData = { positive: 50, neutral: 30, negative: 20 };
+        const fallbackTrendData = [
+            { date: '2025-05-01', positive: 10, neutral: 5, negative: 3 },
+            { date: '2025-05-02', positive: 12, neutral: 6, negative: 4 },
+            { date: '2025-05-03', positive: 8, neutral: 7, negative: 5 }
+        ];
+        const fallbackWordData = [
+            { word: 'stock', count: 100 },
+            { word: 'market', count: 80 },
+            { word: 'reliance', count: 60 },
+            { word: 'invest', count: 40 },
+            { word: 'profit', count: 20 }
+        ];
+        const fallbackSnapshotData = [
+            { sentiment: 'positive', message: 'Reliance is killing it with their new energy ventures!', sentiment_score: 0.95 },
+            { sentiment: 'neutral', message: 'Reliance stock is stable, waiting for next earnings report.', sentiment_score: 0.05 },
+            { sentiment: 'negative', message: "Disappointed with Reliance's recent performance.", sentiment_score: 0.90 }
+        ];
+
+        // Display Error Message
+        function showError(elementId, message) {
+            const errorDiv = document.getElementById(elementId);
+            errorDiv.textContent = message;
+        }
+
+        // Pie Chart (Sentiment Overview)
+        async function renderPieChart() {
+            let data = fallbackPieData;
+            try {
+                const response = await fetch(`${backendUrl}/sentiment-summary/${company}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                data = await response.json();
+                showError('pieChartError', ''); // Clear error
+            } catch (error) {
+                console.error('Error fetching pie chart data:', error);
+                showError('pieChartError', 'Failed to load sentiment data. Using fallback data.');
+            }
+
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Positive', 'Neutral', 'Negative'],
+                    datasets: [{
+                        data: [data.positive || 0, data.neutral || 0, data.negative || 0],
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 99, 132, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 99, 132, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#E5E7EB',
+                                font: {
+                                    family: 'Montserrat',
+                                    size: 12
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Line Chart (Sentiment Trends)
+        async function renderLineChart() {
+            let data = fallbackTrendData;
+            try {
+                const response = await fetch(`${backendUrl}/sentiment-trend/${company}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                data = await response.json();
+                showError('trendChartError', ''); // Clear error
+            } catch (error) {
+                console.error('Error fetching trend data:', error);
+                showError('trendChartError', 'Failed to load trend data. Using fallback data.');
+            }
+
+            // Prepare labels and datasets
+            const labels = data.map(item => item.date);
+            const positiveData = data.map(item => item.positive || 0);
+            const neutralData = data.map(item => item.neutral || 0);
+            const negativeData = data.map(item => item.negative || 0);
+
+            const ctx = document.getElementById('lineChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Positive',
+                            data: positiveData,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'Neutral',
+                            data: neutralData,
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'Negative',
+                            data: negativeData,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            tension: 0.3,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: '#E5E7EB',
+                                font: {
+                                    family: 'Montserrat',
+                                    size: 12
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E5E7EB'
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E5E7EB'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Word Cloud
+        async function renderWordCloud() {
+            let data = fallbackWordData;
+            try {
+                const response = await fetch(`${backendUrl}/top-keywords/${company}?top_n=50`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                data = await response.json();
+                showError('wordCloudError', ''); // Clear error
+            } catch (error) {
+                console.error('Error fetching word cloud data:', error);
+                showError('wordCloudError', 'Failed to load word cloud data. Using fallback data.');
+            }
+
+            // Format data for WordCloud2
+            const wordList = data.map(item => [item.word, item.count]);
+
+            WordCloud(document.getElementById('wordCloud'), {
+                list: wordList,
+                gridSize: 10,
+                weightFactor: 5,
+                fontFamily: 'Montserrat, sans-serif',
+                color: function () {
+                    return 'rgb(' + 
+                        Math.floor(Math.random() * 155 + 100) + ', ' + 
+                        Math.floor(Math.random() * 155 + 100) + ', ' + 
+                        Math.floor(Math.random() * 155 + 100) + ')';
+                },
+                rotateRatio: 0.5,
+                backgroundColor: '#141e30',
+                minSize: 10
+            });
+        }
+
+        // Sentiment Snapshot
+        async function renderSentimentSnapshot() {
+            let data = fallbackSnapshotData;
+            try {
+                const response = await fetch(`${backendUrl}/sentiment-snapshot/${company}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                data = await response.json();
+                console.log('Snapshot Data:', data);
+                showError('snapshotError', ''); // Clear error
+            } catch (error) {
+                console.error('Error fetching snapshot data:', error);
+                showError('snapshotError', 'Failed to load snapshot data. Using fallback data.');
+            }
+
+            const container = document.getElementById('snapshotContainer');
+            container.innerHTML = ''; // Clear previous content
+
+            data.forEach(item => {
+                const card = document.createElement('div');
+                card.className = `card p-6 rounded-lg sentiment-message ${item.sentiment}`;
+                card.innerHTML = `
+                    <h3 class="text-xl font-semibold mb-4 capitalize">${item.sentiment} Sentiment (Score: ${item.sentiment_score})</h3>
+                    <p class="text-[#E5E7EB]">${item.message}</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Initialize Charts
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Initializing visualizations...');
+            setTimeout(() => {
+                renderPieChart();
+                renderLineChart();
+                renderWordCloud();
+                renderSentimentSnapshot();
+            }, 100); // Small delay to ensure DOM is ready
+        });
+    </script>
+</body>
+</html>

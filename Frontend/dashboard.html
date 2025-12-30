@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockVibe - Sentiment Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: #0a1a2f;
+            color: #ffffff;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+        }
+        .btn {
+            transition: all 0.3s;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            background: #FFD700;
+            color: #0a1a2f;
+        }
+        .card {
+            transition: transform 0.3s, box-shadow 0.3s;
+            background: linear-gradient(145deg, #1e2a44, #141e30);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        .card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+        }
+        h1, h2 {
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .mobile-menu {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        .mobile-menu.open { transform: translateX(0); }
+        main {
+            position: relative;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50"><path d="M0 0h50v50H0z" fill="none"/><path d="M0 50V0h50" fill="none" stroke="rgba(255,215,0,0.1)" stroke-width="1"/></svg>') repeat;
+        }
+        select {
+            background: #141e30;
+            color: #ffffff;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            padding: 8px;
+            border-radius: 4px;
+        }
+        select:focus {
+            outline: none;
+            border-color: #FFD700;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        th {
+            background: #1e2a44;
+            font-weight: 600;
+        }
+        .error-message {
+            color: #ef4444;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full bg-[#0a1a2f] shadow-lg z-20">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="index.html" class="text-2xl font-bold text-[#FFD700]">StockVibe</a>
+            <div class="hidden md:flex space-x-6">
+                <a href="index.html#home" class="hover:text-[#FFD700]">Home</a>
+                <a href="dashboard.html" class="hover:text-[#FFD700]">Sentiment Insights</a>
+                <a href="index.html#features" class="hover:text-[#FFD700]">Features</a>
+                <a href="compare.html" class="hover:text-[#FFD700]">Compare</a>
+                <a href="index.html#contact" class="hover:text-[#FFD700]">Contact</a>
+            </div>
+            <button id="mobileMenuBtn" class="md:hidden text-[#FFD700] focus:outline-none">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </div>
+    </nav>
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="mobile-menu fixed top-0 right-0 h-full w-3/4 bg-[#141e30] z-30 md:hidden">
+        <div class="flex justify-end p-4">
+            <button id="closeMenuBtn" class="text-[#FFD700] focus:outline-none">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="flex flex-col items-center space-y-6 mt-10">
+            <a href="index.html#home" class="text-lg hover:text-[#FFD700]">Home</a>
+            <a href="dashboard.html" class="text-lg hover:text-[#FFD700]">Sentiment Insights</a>
+            <a href="index.html#features" class="text-lg hover:text-[#FFD700]">Features</a>
+            <a href="compare.html" class="text-lg hover:text-[#FFD700]">Compare</a>
+            <a href="index.html#contact" class="text-lg hover:text-[#FFD700]">Contact</a>
+        </div>
+    </div>
+
+    <main class="container mx-auto px-4 pt-24 pb-12">
+        <header class="mb-12 text-center">
+            <h1 class="text-4xl sm:text-5xl font-bold text-[#ffffff] mb-4">Sentiment Dashboard</h1>
+            <p class="text-lg text-[#E5E7EB]">Explore sentiment insights for your selected company.</p>
+        </header>
+
+        <!-- Company Selection -->
+        <section class="mb-12">
+            <div class="card p-6 rounded-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-[#ffffff]">Select Company</h2>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <select id="companySelect" class="w-full sm:w-1/2">
+                        <!-- Populated dynamically -->
+                    </select>
+                    <button onclick="updateDashboard()" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-2 px-4 rounded-lg">Load Data</button>
+                </div>
+                <div id="companyError" class="error-message hidden mt-4"></div>
+            </div>
+        </section>
+
+        <!-- Sentiment Summary -->
+        <section class="mb-12">
+            <div class="card p-6 rounded-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-[#ffffff]">Sentiment Summary</h2>
+                <div id="summaryError" class="error-message hidden mb-4"></div>
+                <table id="sentimentTable">
+                    <thead>
+                        <tr>
+                            <th>Sentiment</th>
+                            <th>Count</th>
+                            <th>Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="3">Select a company to view sentiment data</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- View Visualizations -->
+        <section class="text-center">
+            <a id="visualizationsLink" href="#" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-3 px-6 rounded-lg">View Detailed Visualizations</a>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-[#0a1a2f] text-white py-8 text-center">
+        <p>© 2025 StockVibe. All rights reserved.</p>
+    </footer>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000'; // Update with your FastAPI server URL
+        const defaultCompanies = [
+            { id: 'hdfc', name: 'HDFC Bank' },
+            { id: 'reliance', name: 'Reliance' },
+            { id: 'tcs', name: 'TCS' },
+            { id: 'infosys', name: 'Infosys' },
+            { id: 'icici', name: 'ICICI Bank' },
+            { id: 'Adani_Enterprises', name: 'Adani Enterprises' },
+            { id: 'Larsen_Toubro', name: 'Larsen Toubro' },
+            { id: 'kotak_mahi', name: 'Kotak Mahindra' },
+            { id: 'Hindustan_Unilever', name: 'Hindustan Unilever' },
+            { id: 'itc', name: 'ITC' }
+        ];
+
+        async function fetchWithErrorHandling(url, errorElementId, errorMessage) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                return await response.json();
+            } catch (error) {
+                const errorDiv = document.getElementById(errorElementId);
+                errorDiv.textContent = `${errorMessage}: ${error.message}`;
+                errorDiv.classList.remove('hidden');
+                throw error;
+            }
+        }
+
+        async function populateCompanies() {
+            const select = document.getElementById('companySelect');
+            try {
+                const companies = await fetchWithErrorHandling(
+                    `${API_BASE_URL}/companies`,
+                    'companyError',
+                    'Failed to load companies'
+                );
+                select.innerHTML = companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            } catch (error) {
+                console.warn('Using default companies due to API failure');
+                select.innerHTML = defaultCompanies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                document.getElementById('companyError').classList.add('hidden');
+            }
+        }
+
+        async function updateDashboard() {
+            const company = document.getElementById('companySelect').value;
+            try {
+                const summary = await fetchWithErrorHandling(
+                    `${API_BASE_URL}/sentiment-summary/${company}`,
+                    'summaryError',
+                    'Failed to load sentiment summary'
+                );
+
+                const total = (summary.positive || 0) + (summary.negative || 0) + (summary.neutral || 0);
+                const tableBody = document.getElementById('sentimentTable').querySelector('tbody');
+                tableBody.innerHTML = `
+                    <tr>
+                        <td>Positive</td>
+                        <td>${summary.positive || 0}</td>
+                        <td>${total ? ((summary.positive || 0) / total * 100).toFixed(1) : 0}%</td>
+                    </tr>
+                    <tr>
+                        <td>Negative</td>
+                        <td>${summary.negative || 0}</td>
+                        <td>${total ? ((summary.negative || 0) / total * 100).toFixed(1) : 0}%</td>
+                    </tr>
+                    <tr>
+                        <td>Neutral</td>
+                        <td>${summary.neutral || 0}</td>
+                        <td>${total ? ((summary.neutral || 0) / total * 100).toFixed(1) : 0}%</td>
+                    </tr>
+                `;
+                document.getElementById('summaryError').classList.add('hidden');
+                document.getElementById('visualizationsLink').href = `visualizations.html?company=${company}`;
+            } catch (error) {
+                console.error('Error updating dashboard:', error);
+            }
+        }
+
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const closeMenuBtn = document.getElementById('closeMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.add('open');
+        });
+        closeMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.remove('open');
+        });
+
+        // Initialize
+        populateCompanies().then(updateDashboard);
+    </script>
+</body>
+</html>

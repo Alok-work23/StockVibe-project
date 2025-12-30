@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockVibe - Company Sentiment Visualizations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: #0a1a2f;
+            color: #ffffff;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+        }
+        .btn {
+            transition: all 0.3s;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            background: #FFD700;
+            color: #0a1a2f;
+        }
+        .card {
+            transition: transform 0.3s, box-shadow 0.3s;
+            background: linear-gradient(145deg, #1e2a44, #141e30);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        .card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+        }
+        h1, h2, h3 {
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .mobile-menu {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        .mobile-menu.open { transform: translateX(0); }
+        main {
+            position: relative;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50"><path d="M0 0h50v50H0z" fill="none"/><path d="M0 50V0h50" fill="none" stroke="rgba(255,215,0,0.1)" stroke-width="1"/></svg>') repeat;
+        }
+        select {
+            background: #141e30;
+            color: #ffffff;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            padding: 8px;
+            border-radius: 4px;
+        }
+        select:focus {
+            outline: none;
+            border-color: #FFD700;
+        }
+        .volatility-metric { font-size: 1.2rem; color: #FFD700; }
+        .reason-list { margin-top: 1rem; }
+        .reason-list li { margin-bottom: 0.5rem; }
+        .error-message { color: #ef4444; font-weight: 600; }
+        .loading-spinner { 
+            border: 4px solid rgba(255, 215, 0, 0.3); 
+            border-top: 4px solid #FFD700; 
+            border-radius: 50%; 
+            width: 40px; 
+            height: 40px; 
+            animation: spin 1s linear infinite; 
+            margin: 20px auto; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Adjusted pie chart size */
+        #sentimentPieChart {
+            max-width: 300px;
+            max-height: 300px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full bg-[#0a1a2f] shadow-lg z-20">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="index.html" class="text-2xl font-bold text-[#FFD700]">StockVibe</a>
+            <div class="hidden md:flex space-x-6">
+                <a href="index.html#home" class="hover:text-[#FFD700]">Home</a>
+                <a href="dashboard.html" class="hover:text-[#FFD700]">Sentiment Insights</a>
+                <a href="compare.html" class="hover:text-[#FFD700]">Compare</a>
+                <a href="index.html#features" class="hover:text-[#FFD700]">Features</a>
+                
+                <a href="index.html#contact" class="hover:text-[#FFD700]">Contact</a>
+            </div>
+            <button id="mobileMenuBtn" class="md:hidden text-[#FFD700] focus:outline-none">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </div>
+    </nav>
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="mobile-menu fixed top-0 right-0 h-full w-3/4 bg-[#141e30] z-30 md:hidden">
+        <div class="flex justify-end p-4">
+            <button id="closeMenuBtn" class="text-[#FFD700] focus:outline-none">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="flex flex-col items-center space-y-6 mt-10">
+            <a href="index.html#home" class="text-lg hover:text-[#FFD700]">Home</a>
+            <a href="dashboard.html" class="text-lg hover:text-[#FFD700]">Sentiment Insights</a>
+            <a href="compare.html" class="text-lg hover:text-[#FFD700]">Compare</a>
+            <a href="index.html#features" class="text-lg hover:text-[#FFD700]">Features</a>
+            
+            <a href="index.html#contact" class="text-lg hover:text-[#FFD700]">Contact</a>
+        </div>
+    </div>
+
+    <main class="container mx-auto px-4 pt-24 pb-12">
+        <header class="mb-12 text-center">
+            <h1 id="companyTitle" class="text-4xl sm:text-5xl font-bold text-[#ffffff] mb-4">Sentiment Visualizations</h1>
+            <p class="text-lg text-[#E5E7EB]">Detailed sentiment analysis for your selected company.</p>
+        </header>
+
+        <!-- Overall Sentiment Pie Chart -->
+        <section class="mb-12">
+            <h2 class="text-3xl font-semibold mb-6 text-[#ffffff]">Overall Sentiment</h2>
+            <div class="card p-6 rounded-lg">
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <select id="sentimentYear" onchange="updateSentimentPieChart()">
+                        <option value="all">All Years</option>
+                    </select>
+                    <select id="sentimentMonth" onchange="updateSentimentPieChart()" disabled>
+                        <option value="all">All Months</option>
+                    </select>
+                </div>
+                <div id="sentimentPieError" class="error-message hidden mb-4"></div>
+                <div id="sentimentPieLoading" class="loading-spinner hidden"></div>
+                <canvas id="sentimentPieChart" height="100"></canvas>
+            </div>
+        </section>
+
+        <!-- Sentiment Trends Line Chart -->
+        <section class="mb-12">
+            <h2 class="text-3xl font-semibold mb-6 text-[#ffffff]">Sentiment Trends Over Time</h2>
+            <div class="card p-6 rounded-lg">
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <select id="trendPeriod" onchange="updateSentimentTrendChart()">
+                        <option value="all">All Time</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="90d">Last 90 Days</option>
+                        <option value="1y">Last 1 Year</option>
+                    </select>
+                    <input type="date" id="trendStartDate" onchange="updateSentimentTrendChart()" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                    <input type="date" id="trendEndDate" onchange="updateSentimentTrendChart()" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                </div>
+                <div id="trendError" class="error-message hidden mb-4"></div>
+                <div id="trendLoading" class="loading-spinner hidden"></div>
+                <canvas id="timeSeriesChart" height="100"></canvas>
+            </div>
+        </section>
+
+        <section class="mb-12">
+            <h2 class="text-3xl font-semibold mb-6 text-[#ffffff]">Price vs. Sentiment Correlation</h2>
+            <div class="card p-6 rounded-lg">
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <select id="pricePeriod" onchange="initPriceSentimentChart()">
+                        <option value="all">All Time</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="90d">Last 90 Days</option>
+                        <option value="1y">Last 1 Year</option>
+                    </select>
+                    <input type="date" id="priceStartDate" onchange="initPriceSentimentChart()" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                    <input type="date" id="priceEndDate" onchange="initPriceSentimentChart()" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                </div>
+                <div id="priceSentimentError" class="error-message hidden mb-4"></div>
+                <div id="priceSentimentLoading" class="loading-spinner hidden"></div>
+                <canvas id="priceSentimentChart" height="100"></canvas>
+                <p class="volatility-metric mt-4">30-Day Volatility: <span id="volatility">N/A</span></p>
+            </div>
+        </section>
+
+        <!-- Message Volume Bar Chart -->
+        <section class="mb-12">
+            <h2 class="text-3xl font-semibold mb-6 text-[#ffffff]">Message Volume</h2>
+            <div class="card p-6 rounded-lg">
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <select id="volumePeriod" onchange="initVolumeChart()">
+                        <option value="all">All Time</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="90d">Last 90 Days</option>
+                        <option value="1y">Last 1 Year</option>
+                    </select>
+                    <input type="date" id="volumeStartDate" onchange="initVolumeChart()" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                    <input type="date" id="volumeEndDate" onchange="initVolumeChart()" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                </div>
+                <div id="volumeError" class="error-message hidden mb-4"></div>
+                <div id="volumeLoading" class="loading-spinner hidden"></div>
+                <canvas id="volumeChart" height="100"></canvas>
+                <div id="volumeReasons" class="reason-list text-[#E5E7EB]"></div>
+            </div>
+        </section>
+
+        
+        <!-- Volume Insights Section -->
+        <!-- Volume Insights Section -->
+        <section class="mb-12">
+            <h2 class="text-3xl font-semibold mb-6 text-[#ffffff]">Message Volume Analysis</h2>
+            <div class="card p-6 rounded-lg">
+                <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <select id="timePeriodType" onchange="updatePeriodControls()" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                        <option value="recent">Recent Time Period</option>
+                        <option value="specific">Specific Month/Year</option>
+                    </select>
+                    
+                    <div id="recentPeriodControls">
+                        <select id="recentPeriod" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                            <option value="30">Last 30 Days</option>
+                            <option value="90">Last 90 Days</option>
+                            <option value="180">Last 6 Months</option>
+                            <option value="365">Last 1 Year</option>
+                        </select>
+                    </div>
+                    
+                    <div id="specificPeriodControls" class="hidden">
+                        <select id="analysisYear" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                            <!-- Populated by JavaScript -->
+                        </select>
+                        <select id="analysisMonth" class="bg-[#141e30] text-white border border-[#FFD700] p-2 rounded">
+                            <option value="">All Months</option>
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                    </div>
+                    
+                    <button onclick="updateVolumeInsights()" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-2 px-4 rounded-lg">
+                        Analyze
+                    </button>
+                </div>
+                
+                <div id="insightsError" class="error-message hidden mb-4"></div>
+                <div id="insightsLoading" class="loading-spinner hidden"></div>
+                
+                <!-- Analysis Summary -->
+                <div id="analysisSummary" class="mb-6 hidden">
+                    <h3 class="text-xl font-semibold mb-2 text-[#FFD700]">Period Summary</h3>
+                    <div id="summaryContent" class="text-[#E5E7EB]"></div>
+                </div>
+                
+                <!-- Spikes Table -->
+                <div id="spikesTable" class="mb-6 hidden">
+                    <h3 class="text-xl font-semibold mb-4 text-[#FFD700]">Significant Volume Spikes</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full border border-[#FFD700]">
+                            <thead>
+                                <tr class="bg-[#1e2a44]">
+                                    <th class="p-2 border border-[#FFD700]">Date</th>
+                                    <th class="p-2 border border-[#FFD700]">Message Count</th>
+                                    <th class="p-2 border border-[#FFD700]">Daily Change</th>
+                                </tr>
+                            </thead>
+                            <tbody id="spikesTableBody" class="text-center">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- AI Analysis -->
+                <div id="aiAnalysis" class="hidden">
+                    <h3 class="text-xl font-semibold mb-4 text-[#FFD700]">Market Analysis</h3>
+                    <div id="analysisContent" class="bg-[#1e2a44] p-4 rounded-lg">
+                        <ul id="insightsList" class="list-disc pl-5 space-y-2 text-[#E5E7EB]">
+                            <!-- Populated by JavaScript -->
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Volume Chart -->
+                <div class="mt-6">
+                    <canvas id="volumeTrendChart" height="100"></canvas>
+                </div>
+            </div>
+        </section>
+        <section class="text-center">
+            <a href="dashboard.html" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-3 px-6 rounded-lg">Back to Dashboard</a>
+            <a href="compare.html" class="btn bg-[#FFD700] text-[#0a1a2f] font-semibold py-3 px-6 rounded-lg ml-4">Compare Companies</a>
+        </section>
+    </main>
+    <div id="newsModal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden z-50">
+        <div class="bg-gray-900 text-white p-6 rounded-lg max-w-lg w-full">
+            <button onclick="document.getElementById('newsModal').classList.add('hidden')" class="text-red-400 float-right">✖</button>
+            <div id="newsModalContent" class="mt-4 space-y-2"></div>
+        </div>
+    </div>
+    
+
+    <!-- Footer -->
+    <footer class="bg-[#0a1a2f] text-white py-8 text-center">
+        <p>© 2025 StockVibe. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:8000';
+        const companyNames = {
+            hdfc: "HDFC Bank",
+            reliance: "Reliance",
+            tcs: "TCS",
+            infosys: "Infosys",
+            icici: "ICICI Bank",
+            Adani_Enterprises: "Adani Enterprises",
+            Larsen_Toubro: "Larsen Toubro",
+            kotak_mahi: "Kotak Mahindra",
+            Hindustan_Unilever: "Hindustan Unilever",
+            itc: "ITC"
+        };
+
+        // Get company from URL query parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const company = urlParams.get('company') || 'hdfc';
+        const companyName = companyNames[company] || 'HDFC Bank';
+
+        // Update page title
+        document.getElementById('companyTitle').textContent = `${companyName} Sentiment Visualizations`;
+
+        // Initialize charts
+        let sentimentPieChart, timeSeriesChart, priceSentimentChart, volumeChart;
+
+        // Utility Functions
+        async function fetchWithErrorHandling(url, errorElementId, loadingElementId, errorMessage) {
+            const errorDiv = document.getElementById(errorElementId);
+            const loadingDiv = document.getElementById(loadingElementId);
+            try {
+                loadingDiv.classList.remove('hidden');
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                return await response.json();
+            } catch (error) {
+                errorDiv.textContent = `${errorMessage}: ${error.message}`;
+                errorDiv.classList.remove('hidden');
+                throw error;
+            } finally {
+                loadingDiv.classList.add('hidden');
+            }
+        }
+
+        function populateYearMonthFilters(trendData) {
+            const years = [...new Set(trendData.map(d => new Date(d.date).getFullYear()))].sort();
+            const months = [...new Set(trendData.map(d => new Date(d.date).getMonth() + 1))].sort((a, b) => a - b);
+
+            const yearSelect = document.getElementById('sentimentYear');
+            yearSelect.innerHTML = '<option value="all">All Years</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+
+            const monthSelect = document.getElementById('sentimentMonth');
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            monthSelect.innerHTML = '<option value="all">All Months</option>' + months.map(m => `<option value="${m}">${monthNames[m - 1]}</option>`).join('');
+
+            yearSelect.addEventListener('change', () => {
+                monthSelect.disabled = yearSelect.value === 'all';
+            });
+        }
+
+        // Chart Initialization Functions
+        async function updateSentimentPieChart() {
+            const year = document.getElementById('sentimentYear').value;
+            const month = document.getElementById('sentimentMonth').value;
+
+            try {
+                let url = `${API_BASE_URL}/sentiment-summary/${company}`;
+                if (year !== 'all') url += `?year=${year}`;
+                if (month !== 'all' && year !== 'all') url += `&month=${month}`;
+
+                const counts = await fetchWithErrorHandling(
+                    url,
+                    'sentimentPieError',
+                    'sentimentPieLoading',
+                    'Failed to load sentiment data'
+                );
+
+                document.getElementById('sentimentPieError').classList.add('hidden');
+
+                if (sentimentPieChart) sentimentPieChart.destroy();
+                sentimentPieChart = new Chart(document.getElementById('sentimentPieChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Positive', 'Negative', 'Neutral'],
+                        datasets: [{
+                            data: [
+                                counts.positive || 0,
+                                counts.negative || 0,
+                                counts.neutral || 0
+                            ],
+                            backgroundColor: ['#FFD700', '#ef4444', '#6b7280'],
+                            borderColor: ['#FFD700', '#ef4444', '#6b7280'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        cutout: '60%', // Increased cutout for smaller appearance
+                        plugins: {
+                            legend: { 
+                                labels: { color: '#E5E7EB', font: { size: 12 } },
+                                position: 'bottom' // Moved legend to bottom
+                            },
+                            tooltip: { enabled: true }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            } catch (error) {
+                console.error('Error updating sentiment pie chart:', error);
+            }
+        }
+
+        async function updateSentimentTrendChart() {
+            const period = document.getElementById('trendPeriod').value;
+            const startDate = document.getElementById('trendStartDate').value;
+            const endDate = document.getElementById('trendEndDate').value;
+
+            let url = `${API_BASE_URL}/sentiment-trend/${company}`;
+            if (period !== 'all' && !startDate && !endDate) {
+                const today = new Date();
+                let start;
+                if (period === '30d') start = new Date(today.setDate(today.getDate() - 30));
+                else if (period === '90d') start = new Date(today.setDate(today.getDate() - 90));
+                else if (period === '1y') start = new Date(today.setFullYear(today.getFullYear() - 1));
+                url += `?start_date=${start.toISOString().split('T')[0]}&end_date=${new Date().toISOString().split('T')[0]}`;
+            } else if (startDate && endDate) {
+                url += `?start_date=${startDate}&end_date=${endDate}`;
+            }
+
+            try {
+                const trendData = await fetchWithErrorHandling(
+                    url,
+                    'trendError',
+                    'trendLoading',
+                    'Failed to load sentiment trend data'
+                );
+
+                const labels = trendData.map(d => d.date).sort();
+                const positive = trendData.map(d => d.positive);
+                const negative = trendData.map(d => d.negative);
+
+                document.getElementById('trendError').classList.add('hidden');
+
+                if (timeSeriesChart) timeSeriesChart.destroy();
+                timeSeriesChart = new Chart(document.getElementById('timeSeriesChart'), {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Positive Sentiment',
+                                data: positive,
+                                borderColor: '#FFD700',
+                                backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                                fill: false,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Negative Sentiment',
+                                data: negative,
+                                borderColor: '#ef4444',
+                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                fill: false,
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        scales: {
+                            y: { beginAtZero: true, grid: { borderColor: 'rgba(255, 215, 0, 0.2)' } },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#E5E7EB' } },
+                            tooltip: { enabled: true },
+                            zoom: {
+                                zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' },
+                                pan: { enabled: true, mode: 'xy' }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error updating sentiment trend chart:', error);
+            }
+        }
+
+        async function initPriceSentimentChart() {
+            const period = document.getElementById('pricePeriod').value;
+            const begin = document.getElementById('priceStartDate').value;
+            const end = document.getElementById('priceEndDate').value;
+
+            let url = `${API_BASE_URL}/price-vs-sentiment/${company}`;
+            if (period !== 'all' && !begin && !end) {
+                const today = new Date();
+                let start;
+                if (period === '30d') start = new Date(today.setDate(today.getDate() - 30));
+                else if (period === '90d') start = new Date(today.setDate(today.getDate() - 90));
+                else if (period === '1y') start = new Date(today.setFullYear(today.getFullYear() - 1));
+                url += `?start_date=${start.toISOString().split('T')[0]}&end_date=${new Date().toISOString().split('T')[0]}`;
+            } else if (begin && end) {
+                url += `?start_date=${begin}&end_date=${end}`;
+            }
+
+            try {
+                const priceSentimentData = await fetchWithErrorHandling(
+                    url,
+                    'priceSentimentError',
+                    'priceSentimentLoading',
+                    'Failed to load price-sentiment data'
+                );
+
+                const labels = priceSentimentData.map(d => d.date).sort();
+                const sentimentScores = priceSentimentData.map(d => d.avg_net_sentiment * 100);
+                const prices = priceSentimentData.map(d => d.avg_current_price);
+
+                document.getElementById('priceSentimentError').classList.add('hidden');
+
+                if (priceSentimentChart) priceSentimentChart.destroy();
+                priceSentimentChart = new Chart(document.getElementById('priceSentimentChart'), {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Net Sentiment Score (%)',
+                                data: sentimentScores,
+                                borderColor: '#FFD700',
+                                backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                                fill: false,
+                                yAxisID: 'y-sentiment',
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Stock Price (₹)',
+                                data: prices,
+                                borderColor: '#22c55e',
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                fill: false,
+                                yAxisID: 'y-price',
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        scales: {
+                            'y-sentiment': {
+                                type: 'linear',
+                                position: 'left',
+                                grid: { borderColor: 'rgba(255, 215, 0, 0.2)' },
+                                title: { display: true, text: 'Sentiment (%)', color: '#E5E7EB' }
+                            },
+                            'y-price': {
+                                type: 'linear',
+                                position: 'right',
+                                grid: { display: false },
+                                title: { display: true, text: 'Price (₹)', color: '#E5E7EB' }
+                            },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#E5E7EB' } },
+                            tooltip: { enabled: true },
+                            zoom: {
+                                zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' },
+                                pan: { enabled: true, mode: 'xy' }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error initializing price-sentiment chart:', error);
+            }
+        }
+        
+        // Initialize year dropdown
+        function initYearDropdown() {
+            const yearSelect = document.getElementById('analysisYear');
+            const currentYear = new Date().getFullYear();
+            yearSelect.innerHTML = '';
+            
+            for (let year = currentYear; year >= 2000; year--) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelect.appendChild(option);
+            }
+        }
+
+        // Toggle between period controls
+        function updatePeriodControls() {
+            const periodType = document.getElementById('timePeriodType').value;
+            document.getElementById('recentPeriodControls').classList.toggle('hidden', periodType !== 'recent');
+            document.getElementById('specificPeriodControls').classList.toggle('hidden', periodType !== 'specific');
+        }
+
+        // Enhanced volume insights function
+        async function updateVolumeInsights() {
+            const periodType = document.getElementById('timePeriodType').value;
+            let url = `${API_BASE_URL}/volume-insights/${company}`;
+            
+            if (periodType === 'recent') {
+                const days = document.getElementById('recentPeriod').value;
+                url += `?days=${days}`;
+            } else {
+                const year = document.getElementById('analysisYear').value;
+                const month = document.getElementById('analysisMonth').value;
+                url += `?year=${year}`;
+                if (month) url += `&month=${month}`;
+            }
+            
+            try {
+                // Show loading state
+                document.getElementById('insightsLoading').classList.remove('hidden');
+                document.getElementById('insightsError').classList.add('hidden');
+                document.getElementById('analysisSummary').classList.add('hidden');
+                document.getElementById('spikesTable').classList.add('hidden');
+                document.getElementById('aiAnalysis').classList.add('hidden');
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                // Update summary
+                const summaryContent = document.getElementById('summaryContent');
+                if (data.period.days) {
+                    summaryContent.innerHTML = `Showing analysis for last <strong>${data.period.days}</strong> days`;
+                } else {
+                    const monthName = data.period.month ? 
+                        new Date(2000, data.period.month-1, 1).toLocaleString('default', {month: 'long'}) : 'All Months';
+                    summaryContent.innerHTML = `Showing analysis for <strong>${monthName} ${data.period.year}</strong>`;
+                }
+                document.getElementById('analysisSummary').classList.remove('hidden');
+                
+                // Update spikes table if any
+                if (data.spikes && data.spikes.length > 0) {
+                    const tableBody = document.getElementById('spikesTableBody');
+                    tableBody.innerHTML = '';
+                    
+                    data.spikes.forEach(spike => {
+                        const row = document.createElement('tr');
+                        row.className = 'border border-[#FFD700]';
+                        row.innerHTML = `
+                            <td class="p-2 border border-[#FFD700]">${spike.date}</td>
+                            <td class="p-2 border border-[#FFD700]">${spike.count}</td>
+                            <td class="p-2 border border-[#FFD700] ${spike.change > 0 ? 'text-green-400' : 'text-red-400'}">
+                                ${spike.change > 0 ? '+' : ''}${spike.change}%
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                    document.getElementById('spikesTable').classList.remove('hidden');
+                }
+                
+                // Update AI analysis
+                if (data.insights && data.insights.length > 0) {
+                    const insightsList = document.getElementById('insightsList');
+                    insightsList.innerHTML = '';
+                    
+                    data.insights.forEach(insight => {
+                        if (insight.trim()) {
+                            const li = document.createElement('li');
+                            li.innerHTML = insight.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Format bold text
+                            insightsList.appendChild(li);
+                        }
+                    });
+                    document.getElementById('aiAnalysis').classList.remove('hidden');
+                }
+                
+                // Update volume trend chart
+                updateVolumeTrendChart(data.volume_data);
+                
+            } catch (error) {
+                document.getElementById('insightsError').textContent = 
+                    `Failed to load volume insights: ${error.message}`;
+                document.getElementById('insightsError').classList.remove('hidden');
+            } finally {
+                document.getElementById('insightsLoading').classList.add('hidden');
+            }
+        }
+
+        // Initialize volume trend chart
+        let volumeTrendChart;
+        function updateVolumeTrendChart(volumeData) {
+            const ctx = document.getElementById('volumeTrendChart').getContext('2d');
+            
+            if (volumeTrendChart) volumeTrendChart.destroy();
+            
+            const labels = volumeData.map(item => item.date);
+            const counts = volumeData.map(item => item.count);
+            const changes = volumeData.map(item => item.change || 0);
+            
+            volumeTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Message Volume',
+                            data: counts,
+                            borderColor: '#FFD700',
+                            backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                            borderWidth: 2,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Daily Change (%)',
+                            data: changes,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 1,
+                            borderDash: [5, 5],
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.datasetIndex === 0) {
+                                        label += context.raw;
+                                    } else {
+                                        label += context.raw + '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Message Count'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Daily Change (%)'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function initVolumeChart() {
+            const period = document.getElementById('volumePeriod').value;
+            const startDate = document.getElementById('volumeStartDate').value;
+            const endDate = document.getElementById('volumeEndDate').value;
+
+            let url = `${API_BASE_URL}/message-volume/${company}`;
+            if (period !== 'all' && !startDate && !endDate) {
+                const today = new Date();
+                let start;
+                if (period === '30d') start = new Date(today.setDate(today.getDate() - 30));
+                else if (period === '90d') start = new Date(today.setDate(today.getDate() - 90));
+                else if (period === '1y') start = new Date(today.setFullYear(today.getFullYear() - 1));
+                url += `?start_date=${start.toISOString().split('T')[0]}&end_date=${new Date().toISOString().split('T')[0]}`;
+            } else if (startDate && endDate) {
+                url += `?start_date=${startDate}&end_date=${endDate}`;
+            }
+
+            try {
+                console.log("Fetching volume data from:", url);
+
+                document.getElementById('volumeLoading').classList.remove('hidden');
+                document.getElementById('volumeError').classList.add('hidden');
+
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(
+                        errorData.error || 
+                        `HTTP ${response.status}: ${response.statusText}`
+                    );
+                }
+
+                volumeChartData = await response.json();
+                console.log("Received volume data:", volumeChartData);
+
+                const labels = volumeChartData.map(d => d.date).sort();
+                const volumes = volumeChartData.map(d => d.message_count);
+
+                if (volumeChart) volumeChart.destroy();
+
+                const ctx = document.getElementById('volumeChart').getContext('2d');
+                volumeChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'Message Volume',
+                            data: volumes,
+                            backgroundColor: '#FFD700',
+                            borderColor: '#FFD700',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: { 
+                                beginAtZero: true, 
+                                grid: { 
+                                    color: 'rgba(255, 215, 0, 0.1)',
+                                    borderColor: 'rgba(255, 215, 0, 0.2)'
+                                },
+                                ticks: {
+                                    color: '#E5E7EB'
+                                }
+                            },
+                            x: { 
+                                grid: { 
+                                    display: false,
+                                    color: 'rgba(255, 215, 0, 0.1)'
+                                },
+                                ticks: {
+                                    color: '#E5E7EB'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: { 
+                                labels: { 
+                                    color: '#E5E7EB',
+                                    font: {
+                                        family: 'Montserrat'
+                                    }
+                                } 
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Messages: ${context.raw}`;
+                                    }
+                                }
+                            }
+                        },
+
+                        onClick: handleVolumeChartClick
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading volume data:', error);
+                document.getElementById('volumeError').textContent = 
+                    `Failed to load volume data: ${error.message}`;
+                document.getElementById('volumeError').classList.remove('hidden');
+
+                if (volumeChart) volumeChart.destroy();
+                const ctx = document.getElementById('volumeChart').getContext('2d');
+                volumeChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: [], datasets: [] },
+                    options: {
+                        scales: {
+                            y: { beginAtZero: true },
+                            x: { display: false }
+                        }
+                    }
+                });
+            } finally {
+                document.getElementById('volumeLoading').classList.add('hidden');
+            }
+        }
+
+        async function handleVolumeChartClick(event, elements) {
+            if (!elements.length) return;
+
+            const index = elements[0].index;
+            const selectedDate = volumeChartData[index].date;
+
+            const newsUrl = `${API_BASE_URL}/get-news/?company=${encodeURIComponent(company)}&date=${selectedDate}`;
+
+            try {
+                const response = await fetch(newsUrl);
+                if (!response.ok) throw new Error("Failed to fetch news");
+
+                const news = await response.json();
+                console.log("Fetched news:", news);
+
+                if (news.length > 0) {
+                    let newsHtml = `<h3 class="text-lg font-semibold mb-2">News on ${company} (${selectedDate})</h3>`;
+                    news.forEach(item => {
+                        newsHtml += `<p><a href="${item.url}" target="_blank" class="text-blue-400 underline">${item.title}</a></p>`;
+                    });
+                    document.getElementById("newsModalContent").innerHTML = newsHtml;
+                } else {
+                    document.getElementById("newsModalContent").innerHTML = `<p>No news found for ${company} on ${selectedDate}.</p>`;
+                }
+
+                document.getElementById("newsModal").classList.remove("hidden");
+            } catch (error) {
+                console.error("Error fetching news:", error);
+                alert("Error fetching news for that date.");
+            }
+        }
+
+
+
+        // Initialize page
+        async function initialize() {
+            try {
+                const trendData = await fetchWithErrorHandling(
+                    `${API_BASE_URL}/sentiment-trend/${company}`,
+                    'sentimentPieError',
+                    'sentimentPieLoading',
+                    'Failed to initialize data'
+                );
+                populateYearMonthFilters(trendData);
+                await Promise.all([
+                    updateSentimentPieChart(),
+                    updateSentimentTrendChart(),
+                    initPriceSentimentChart(),
+                    initVolumeChart(),
+                    updateVolumeInsights(),
+                    initYearDropdown(),
+                    updatePeriodControls()
+                ]);
+                document.getElementById('volatility').textContent = 'N/A'; // No volatility data from backend
+            } catch (error) {
+                console.error('Initialization failed:', error);
+            }
+        }
+
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const closeMenuBtn = document.getElementById('closeMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.add('open');
+        });
+        closeMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.remove('open');
+        });
+
+        // Start initialization
+        initialize();
+    </script>
+</body>
+</html>
