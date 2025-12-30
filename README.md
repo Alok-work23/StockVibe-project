@@ -130,22 +130,7 @@ Sophomore at Sitare University
 
 ---
 
-## 🎉 RESULT
 
-After pushing:
-- GitHub will show a **beautiful README**
-- Your project becomes **portfolio-ready**
-- Recruiters instantly understand your work
-
----
-
-If you want next:
-- 📸 Add screenshots to README  
-- 🌐 Deploy project  
-- 🧠 Improve sentiment model  
-- 🧪 Add ML model  
-
-Just tell me — we’ll level this up 🚀
 
 
 
