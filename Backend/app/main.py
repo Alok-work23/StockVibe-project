@@ -17,6 +17,7 @@ from app.sentiment import FinBERTSentiment
 import logging
 import numpy as np
 from pathlib import Path
+import joblib
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +33,10 @@ logger.info(f"Data directory location: {DATA_DIR}")
 
 
 app = FastAPI()
+
+MODEL_PATH = "../models/stock_predictor.pkl"
+
+ml_model = joblib.load(MODEL_PATH)
 
 # Configure Gemini (replace with your API key)
 genai.configure(api_key="AIzaSyDSc67L2N1KCVH7MNFL6qONMQpNqE760A8")
@@ -571,4 +576,36 @@ def sentiment_snapshot(company: str):
 
     return snapshot
 
+@app.get("/predict/{company}")
+def predict_company(company: str):
 
+    file_path = os.path.join(
+        os.path.dirname(__file__),
+        "data",
+        f"{company}_Forum_data.csv"
+    )
+
+    if not os.path.exists(file_path):
+        return {"error": "Company not found"}
+
+    df = pd.read_csv(file_path)
+
+    latest = df.iloc[-1]
+
+    # Example feature vector
+    features = [[
+        latest["sentiment_score"],
+        latest["msg_like_count"],
+        latest["msg_reply_count"],
+        latest["msg_repost_count"]
+    ]]
+
+    prediction = ml_model.predict(features)[0]
+
+    probability = ml_model.predict_proba(features)[0]
+
+    return {
+        "company": company,
+        "prediction": int(prediction),
+        "confidence": float(max(probability))
+    }
